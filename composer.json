@@ -1,0 +1,44 @@
+{
+    "name": "conduit-ui/prs",
+    "description": "Pull Request interface for the conduit-ui ecosystem",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Jordan Partridge",
+            "email": "jordan@partridge.rocks"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "conduit-ui/connector": "^1.0"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.0",
+        "pestphp/pest": "^3.0",
+        "phpstan/phpstan": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "ConduitUI\\Prs\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "ConduitUI\\Prs\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/pest",
+        "test-coverage": "vendor/bin/pest --coverage",
+        "format": "vendor/bin/pint",
+        "analyse": "vendor/bin/phpstan analyse"
+    },
+    "config": {
+        "sort-packages": true,
+        "preferred-install": "dist",
+        "optimize-autoloader": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

@@ -5,15 +5,82 @@ declare(strict_types=1);
 namespace ConduitUI\Prs;
 
 use ConduitUI\Connector\GithubConnector;
-use ConduitUI\Prs\DataTransferObjects\PullRequest;
+use ConduitUI\Prs\DataTransferObjects\PullRequest as PullRequestData;
 
 class PullRequests
 {
+    protected static ?GithubConnector $defaultConnector = null;
+
     public function __construct(
         protected GithubConnector $connector,
         protected string $owner,
         protected string $repo
-    ) {}
+    ) {
+    }
+
+    /**
+     * Set the default GitHub connector for static methods
+     */
+    public static function setConnector(GithubConnector $connector): void
+    {
+        self::$defaultConnector = $connector;
+    }
+
+    /**
+     * Get the default connector or throw an exception
+     */
+    protected static function connector(): GithubConnector
+    {
+        if (self::$defaultConnector === null) {
+            throw new \RuntimeException(
+                'GitHub connector not configured. Call PullRequests::setConnector() first.'
+            );
+        }
+
+        return self::$defaultConnector;
+    }
+
+    /**
+     * Create a fluent query builder for a repository
+     */
+    public static function for(string $repository): QueryBuilder
+    {
+        return (new QueryBuilder(self::connector()))->repository($repository)->open();
+    }
+
+    /**
+     * Find a specific pull request by number
+     */
+    public static function find(string $repository, int $number): PullRequest
+    {
+        [$owner, $repo] = explode('/', $repository, 2);
+        $connector = self::connector();
+
+        $response = $connector->get("/repos/{$owner}/{$repo}/pulls/{$number}");
+
+        return new PullRequest($connector, $owner, $repo, PullRequestData::fromArray($response));
+    }
+
+    /**
+     * Create a new pull request
+     */
+    public static function create(string $repository, array $attributes): PullRequest
+    {
+        [$owner, $repo] = explode('/', $repository, 2);
+        $connector = self::connector();
+
+        $response = $connector->post("/repos/{$owner}/{$repo}/pulls", $attributes);
+
+        return new PullRequest($connector, $owner, $repo, PullRequestData::fromArray($response));
+    }
+
+    /**
+     * Create a new query builder
+     */
+    public static function query(): QueryBuilder
+    {
+        return new QueryBuilder(self::connector());
+    }
 
     /**
      * Get a pull request by number
@@ -22,7 +89,7 @@ class PullRequests
     {
         $response = $this->connector->get("/repos/{$this->owner}/{$this->repo}/pulls/{$number}");
 
-        return PullRequest::fromArray($response);
+        return new PullRequest($this->connector, $this->owner, $this->repo, PullRequestData::fromArray($response));
     }
 
     /**
@@ -38,59 +105,36 @@ class PullRequests
 
         $response = $this->connector->get("/repos/{$this->owner}/{$this->repo}/pulls?{$queryParams}");
 
-        return array_map(fn ($pr) => PullRequest::fromArray($pr), $response);
-    }
-
-    /**
-     * Filter pull requests by state
-     */
-    public function where(string $key, mixed $value): self
-    {
-        // This will be implemented to support fluent filtering
-        // e.g., PR::where('state', 'open')->author('jordanpartridge')->get()
-        return $this;
-    }
-
-    /**
-     * Filter by author
-     */
-    public function author(string $username): self
-    {
-        return $this->where('author', $username);
-    }
-
-    /**
-     * Filter by state
-     */
-    public function state(string $state): self
-    {
-        return $this->where('state', $state);
+        return array_map(
+            fn ($pr) => new PullRequest($this->connector, $this->owner, $this->repo, PullRequestData::fromArray($pr)),
+            $response
+        );
     }
 
     /**
      * Get only open pull requests
      */
-    public function open(): self
+    public function open(): array
     {
-        return $this->state('open');
+        return $this->list(['state' => 'open']);
     }
 
     /**
      * Get only closed pull requests
      */
-    public function closed(): self
+    public function closed(): array
     {
-        return $this->state('closed');
+        return $this->list(['state' => 'closed']);
     }
 
     /**
-     * Create a new pull request
+     * Create a new pull request (instance method)
      */
-    public function create(array $data): PullRequest
+    public function createPullRequest(array $data): PullRequest
     {
         $response = $this->connector->post("/repos/{$this->owner}/{$this->repo}/pulls", $data);
 
-        return PullRequest::fromArray($response);
+        return new PullRequest($this->connector, $this->owner, $this->repo, PullRequestData::fromArray($response));
     }
 
     /**
@@ -100,7 +144,7 @@ class PullRequests
     {
         $response = $this->connector->patch("/repos/{$this->owner}/{$this->repo}/pulls/{$number}", $data);
 
-        return PullRequest::fromArray($response);
+        return new PullRequest($this->connector, $this->owner, $this->repo, PullRequestData::fromArray($response));
     }
 
     /**
